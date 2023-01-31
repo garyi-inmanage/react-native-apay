@@ -140,7 +140,42 @@ RCT_EXPORT_METHOD(complete:(NSNumber *_Nonnull)status promiseWithResolver:(RCTPr
     self.completion = completion;
     if (self.requestPaymentResolve != NULL) {
         NSString *paymentData = [[NSString alloc] initWithData:payment.token.paymentData encoding:NSUTF8StringEncoding];
-        self.requestPaymentResolve(paymentData);
+        NSMutableDictionary *paymentResponse = [[NSMutableDictionary alloc] initWithCapacity:4];
+        [paymentResponse setObject:paymentData forKey:@"paymentData"];
+        [paymentResponse setObject:payment.token.transactionIdentifier
+                            forKey:@"transactionId"];
+        [paymentResponse setObject:payment.token.paymentMethod.displayName
+                            forKey:@"displayName"];
+        [paymentResponse setObject:payment.token.paymentMethod.network
+                            forKey:@"network"];
+        NSString *type = nil;
+        switch (payment.token.paymentMethod.type) {
+        case PKPaymentMethodTypeDebit:
+          type = @"debit";
+          break;
+        case PKPaymentMethodTypeStore:
+          type = @"store";
+          break;
+        case PKPaymentMethodTypeCredit:
+          type = @"credit";
+          break;
+        case PKPaymentMethodTypePrepaid:
+          type = @"prepaid";
+          break;
+        case PKPaymentMethodTypeUnknown:
+          type = @"unknown";
+          break;
+        default:
+          break;
+        }
+        [paymentResponse setObject:type forKey:@"type"];
+        NSError *error;
+        NSData *json =
+            [NSJSONSerialization dataWithJSONObject:paymentResponse
+                                            options:NSJSONWritingPrettyPrinted
+                                              error:&error];
+        self.requestPaymentResolve(
+            [[NSString alloc] initWithData:json encoding:NSUTF8StringEncoding]);
         self.requestPaymentResolve = NULL;
     }
 }
@@ -151,6 +186,10 @@ RCT_EXPORT_METHOD(complete:(NSNumber *_Nonnull)status promiseWithResolver:(RCTPr
             if (self.completeResolve != NULL) {
                 self.completeResolve(nil);
                 self.completeResolve = NULL;
+            }
+            if (self.requestPaymentResolve != NULL) {
+                self.requestPaymentResolve(nil);
+                self.requestPaymentResolve = NULL;
             }
         }];
     });
